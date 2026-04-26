@@ -117,24 +117,39 @@ std::istream& operator>>(std::istream& in, DelimiterIO&& dest)
 
 std::istream& operator>>(std::istream& in, UllIO&& dest)
 {
-    std::istream::sentry sentry(in);
-    if (!sentry) return in;
+    {
+        std::istream::sentry sentry(in);
+        if (!sentry) return in;
 
-    unsigned long long value;
-    std::string suffix;
+        if (!(in >> dest.ref))
+        {
+            return in;
+        }
 
-    if (!(in >> value >> suffix)) {
-        in.setstate(std::ios::failbit);
+        char suffix[3];
+        if (!in.get(suffix[0]) || !in.get(suffix[1]) || !in.get(suffix[2]))
+        {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
+
+        bool valid = (suffix[0] == 'u' && suffix[1] == 'l' && suffix[2] == 'l') ||
+            (suffix[0] == 'U' && suffix[1] == 'L' && suffix[2] == 'L');
+
+        if (!valid)
+        {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
+
+        int next = in.peek();
+        if (next != ':' && next != EOF && next != ')' && !std::isspace(next)) {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
+
         return in;
     }
-
-    if (suffix != "ull" && suffix != "ULL") {
-        in.setstate(std::ios::failbit);
-        return in;
-    }
-
-    dest.ref = value;
-    return in;
 }
 
 std::istream& operator>>(std::istream& in, CmpIO&& dest)
@@ -159,17 +174,38 @@ std::istream& operator>>(std::istream& in, StrIO&& dest)
     std::istream::sentry sentry(in);
     if (!sentry) return in;
 
-    if (!(in >> DelimiterIO{ '"' }))
+    in >> std::ws;
+
+    if (!(in >> DelimiterIO{ '"' })) 
     {
         return in;
     }
 
-    std::getline(in, dest.ref, '"');
-    if (!in || in.eof())
-    {
-        in.setstate(std::ios::failbit);
+    dest.ref.clear();
+    char c;
+    while (in.get(c)) {
+        if (c == '"')
+        {
+            return in;
+        }
+        if (c == '\\')
+        {
+            if (in.get(c))
+            {
+                dest.ref += c;
+            }
+            else 
+            {
+                in.setstate(std::ios::failbit);
+                return in;
+            }
+        }
+        else {
+            dest.ref += c;
+        }
     }
 
+    in.setstate(std::ios::failbit);
     return in;
 }
 
@@ -178,7 +214,8 @@ std::istream& operator>>(std::istream& in, DataStruct& dest)
     std::istream::sentry sentry(in);
     if (!sentry) return in;
 
-    if (!(in >> DelimiterIO{ '(' } >> DelimiterIO{ ':' })) {
+    if (!(in >> DelimiterIO{ '(' } >> DelimiterIO{ ':' }))
+    {
         in.setstate(std::ios::failbit);
         return in;
     }
@@ -186,30 +223,36 @@ std::istream& operator>>(std::istream& in, DataStruct& dest)
     DataStruct input;
     bool hasKey1 = false, hasKey2 = false, hasKey3 = false;
     int fieldsRead = 0;
-    std::string key;
 
-    while (fieldsRead < 3 && in) {
+    while (fieldsRead < 3 && in)
+    {
         in >> std::ws;
 
-        if (in.peek() == ':') {
+        if (in.peek() == ':')
+        {
             in.get();
             if (in.peek() == ')') {
                 in.get();
                 break;
             }
-            else {
+            else
+            {
                 in.setstate(std::ios::failbit);
                 return in;
             }
         }
 
-        if (!(in >> key)) {
+        std::string key;
+        if (!(in >> key))
+        {
             in.setstate(std::ios::failbit);
             return in;
         }
 
-        if (key == "key1") {
-            if (hasKey1) {
+        if (key == "key1")
+        {
+            if (hasKey1)
+            {
                 in.setstate(std::ios::failbit);
                 return in;
             }
@@ -217,8 +260,10 @@ std::istream& operator>>(std::istream& in, DataStruct& dest)
             hasKey1 = true;
             fieldsRead++;
         }
-        else if (key == "key2") {
-            if (hasKey2) {
+        else if (key == "key2")
+        {
+            if (hasKey2)
+            {
                 in.setstate(std::ios::failbit);
                 return in;
             }
@@ -226,8 +271,10 @@ std::istream& operator>>(std::istream& in, DataStruct& dest)
             hasKey2 = true;
             fieldsRead++;
         }
-        else if (key == "key3") {
-            if (hasKey3) {
+        else if (key == "key3")
+        {
+            if (hasKey3)
+            {
                 in.setstate(std::ios::failbit);
                 return in;
             }
@@ -239,16 +286,27 @@ std::istream& operator>>(std::istream& in, DataStruct& dest)
             in.setstate(std::ios::failbit);
             return in;
         }
+
+        in >> std::ws;
+        if (in.peek() != ':')
+        {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
+        in.get();
     }
 
-    if (!hasKey1 || !hasKey2 || !hasKey3) {
+    if (!hasKey1 || !hasKey2 || !hasKey3)
+    {
         in.setstate(std::ios::failbit);
         return in;
     }
 
-    if (fieldsRead == 3) {
+    if (fieldsRead == 3)
+    {
         in >> std::ws;
-        if (!(in >> DelimiterIO{ ':' } >> DelimiterIO{ ')' })) {
+        if (!(in >> DelimiterIO{ ')' }))
+        {
             in.setstate(std::ios::failbit);
             return in;
         }
