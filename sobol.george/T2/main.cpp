@@ -323,7 +323,7 @@ std::ostream& operator<<(std::ostream& out, const DataStruct& src)
     if (!sentry) return out;
 
     iofmtguard guard(out);
-    out << "(:key1 " << src.key1 << "ULL"
+    out << "(:key1 " << src.key1 << "ull"
         << ":key2 #c(" << std::fixed << std::setprecision(1)
         << src.key2.real() << " " << src.key2.imag() << ")"
         << ":key3 \"" << src.key3 << "\":)";
