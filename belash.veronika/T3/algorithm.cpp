@@ -134,51 +134,6 @@ struct NormalizePolygon {
     }
 };
 
-struct GetPointAtIndex {
-    const std::vector<Point>& points;
-    size_t index;
-    GetPointAtIndex(const std::vector<Point>& p, size_t i) : points(p), index(i) {}
-    Point operator()(const Point&) const {
-        return points[index];
-    }
-};
-
-struct CreateShiftedPolygon {
-    size_t shift;
-    CreateShiftedPolygon(size_t s) : shift(s) {}
-    Polygon operator()(const Polygon& p) const {
-        Polygon result;
-        result.points.resize(p.points.size());
-        for (size_t i = 0; i < p.points.size(); ++i) {
-            result.points[i] = p.points[(i + shift) % p.points.size()];
-        }
-        return result;
-    }
-};
-
-struct ComparePolygons {
-    const Polygon& target;
-    ComparePolygons(const Polygon& t) : target(t) {}
-    bool operator()(const Polygon& other) const {
-        return target == other;
-    }
-};
-
-struct CheckShift {
-    const Polygon& target;
-    const Polygon& other;
-    size_t shift;
-    CheckShift(const Polygon& t, const Polygon& o, size_t s) : target(t), other(o), shift(s) {}
-    bool operator()() const {
-        Polygon shifted;
-        shifted.points.resize(other.points.size());
-        for (size_t i = 0; i < other.points.size(); ++i) {
-            shifted.points[i] = other.points[(i + shift) % other.points.size()];
-        }
-        return target == shifted;
-    }
-};
-
 struct IsSameWithShift {
     Polygon target_norm;
     size_t target_size;
@@ -317,7 +272,7 @@ int main(int argc, char* argv[]) {
             else {
                 std::istringstream num_stream(arg);
                 size_t n;
-                if (num_stream >> n && num_stream.eof()) {
+                if (num_stream >> n && num_stream.eof() && n >= 3) {
                     double sum = std::accumulate(polygons.begin(), polygons.end(), 0.0,
                         SumAreaIf(VertexCountEquals(n)));
                     std::cout << sum << "\n";
@@ -380,7 +335,7 @@ int main(int argc, char* argv[]) {
             else {
                 std::istringstream num_stream(arg);
                 size_t n;
-                if (num_stream >> n && num_stream.eof()) {
+                if (num_stream >> n && num_stream.eof() && n >= 3) {
                     std::cout << std::count_if(polygons.begin(), polygons.end(), VertexCountEquals(n)) << "\n";
                 }
                 else {
@@ -389,10 +344,10 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (cmd == "SAME") {
-            Polygon target;
             std::string rest;
             std::getline(iss, rest);
             std::istringstream rest_iss(rest);
+            Polygon target;
             if (!(rest_iss >> target)) {
                 std::cout << "<INVALID COMMAND>\n";
             }
@@ -402,10 +357,10 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (cmd == "RMECHO") {
-            Polygon target;
             std::string rest;
             std::getline(iss, rest);
             std::istringstream rest_iss(rest);
+            Polygon target;
             if (!(rest_iss >> target)) {
                 std::cout << "<INVALID COMMAND>\n";
             }
