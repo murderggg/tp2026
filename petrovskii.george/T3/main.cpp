@@ -129,11 +129,27 @@ bool polygonIntersect(const Polygon& a, const Polygon& b) {
         }
     }
 
+
+    bool allAinB = true;
     for (const Point& pt : a.points) {
-        if (pointInPolygon(pt, b)) return true;
+        if (!pointInPolygon(pt, b)) {
+            allAinB = false;
+            break;
+        }
     }
+    if (allAinB) {
+        return true;
+    }
+
+    bool allBinA = true;
     for (const Point& pt : b.points) {
-        if (pointInPolygon(pt, a)) return true;
+        if (!pointInPolygon(pt, a)) {
+            allBinA = false;
+            break;
+        }
+    }
+    if (allBinA) {
+        return true;
     }
 
     return false;
