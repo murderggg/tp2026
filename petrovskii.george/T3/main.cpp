@@ -70,7 +70,7 @@ bool segmentIntersect(const Point& a, const Point& b, const Point& c, const Poin
     int o3 = cross(c, d, a);
     int o4 = cross(c, d, b);
 
-    if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) {
+    if (((o1 > 0 && o2 < 0) || (o1 < 0 && o2 > 0)) && ((o3 > 0 && o4 < 0) || (o3 < 0 && o4 > 0))) {
         return true;
     }
 
@@ -264,7 +264,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 double res = std::accumulate(polygons.begin(), polygons.end(), 0.0,
-                AreaSummator([](const Polygon& p){
+                AreaSummator([](const Polygon&){
                     return true;
                 }));
                 std::cout << res / polygons.size() << std::endl;
