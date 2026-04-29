@@ -88,6 +88,19 @@ std::ostream& operator<<(std::ostream& out, const Polygon& poly) {
     return out;
 }
 
+struct ParsePointFunctor {
+    Point operator()(const std::string& token) const {
+        if (token.empty() || token.front() != '(' || token.back() != ')') throw std::runtime_error("");
+        std::string inner = token.substr(1, token.length() - 2);
+        size_t semicolonPos = inner.find(';');
+        if (semicolonPos == std::string::npos) throw std::runtime_error("");
+        Point p;
+        p.x = std::stoi(inner.substr(0, semicolonPos));
+        p.y = std::stoi(inner.substr(semicolonPos + 1));
+        return p;
+    }
+};
+
 std::istream& operator>>(std::istream& in, Polygon& poly) {
     std::string line;
     if (!std::getline(in, line)) return in;
@@ -103,23 +116,12 @@ std::istream& operator>>(std::istream& in, Polygon& poly) {
     std::vector<Point> points;
     points.resize(vertexCount);
 
-    auto parsePoint = [&iss](const std::string& token) -> Point {
-        if (token.empty() || token.front() != '(' || token.back() != ')') throw std::runtime_error("");
-        std::string inner = token.substr(1, token.length() - 2);
-        size_t semicolonPos = inner.find(';');
-        if (semicolonPos == std::string::npos) throw std::runtime_error("");
-        Point p;
-        p.x = std::stoi(inner.substr(0, semicolonPos));
-        p.y = std::stoi(inner.substr(semicolonPos + 1));
-        return p;
-        };
-
     std::vector<std::string> tokens;
     tokens.reserve(vertexCount);
     std::copy_n(std::istream_iterator<std::string>(iss), vertexCount, std::back_inserter(tokens));
 
     try {
-        std::transform(tokens.begin(), tokens.end(), points.begin(), parsePoint);
+        std::transform(tokens.begin(), tokens.end(), points.begin(), ParsePointFunctor());
     }
     catch (...) {
         in.setstate(std::ios::failbit);
@@ -202,18 +204,7 @@ Polygon polygonFromArgs(const std::vector<std::string>& args) {
     std::vector<Point> points;
     points.resize(vertexCount);
 
-    auto parsePoint = [](const std::string& token) -> Point {
-        if (token.empty() || token.front() != '(' || token.back() != ')') throw std::runtime_error("");
-        std::string inner = token.substr(1, token.length() - 2);
-        size_t semicolonPos = inner.find(';');
-        if (semicolonPos == std::string::npos) throw std::runtime_error("");
-        Point p;
-        p.x = std::stoi(inner.substr(0, semicolonPos));
-        p.y = std::stoi(inner.substr(semicolonPos + 1));
-        return p;
-        };
-
-    std::transform(args.begin() + 1, args.begin() + 1 + vertexCount, points.begin(), parsePoint);
+    std::transform(args.begin() + 1, args.begin() + 1 + vertexCount, points.begin(), ParsePointFunctor());
 
     Polygon poly;
     poly.points = points;
