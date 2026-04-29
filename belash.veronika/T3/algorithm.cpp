@@ -26,6 +26,45 @@ struct Polygon {
     }
 };
 
+std::istream& operator>>(std::istream& in, Point& dest) {
+    std::istream::sentry sentry(in);
+    if (!sentry) return in;
+    char c1, c2, c3;
+    int x, y;
+    if (in >> c1 >> x >> c2 >> y >> c3 && c1 == '(' && c2 == ';' && c3 == ')') {
+        dest = { x, y };
+    }
+    else {
+        in.setstate(std::ios::failbit);
+    }
+    return in;
+}
+
+std::istream& operator>>(std::istream& in, Polygon& dest) {
+    std::istream::sentry sentry(in);
+    if (!sentry) return in;
+
+    size_t n;
+    if (!(in >> n) || n < 3) {
+        in.setstate(std::ios::failbit);
+        return in;
+    }
+
+    Polygon tmp;
+    tmp.points.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        Point p;
+        if (!(in >> p)) {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
+        tmp.points.push_back(p);
+    }
+
+    dest = std::move(tmp);
+    return in;
+}
+
 struct AreaCalculator {
     struct GaussSum {
         const std::vector<Point>& p;
@@ -47,17 +86,17 @@ struct AreaCalculator {
     }
 };
 
+struct SumArea {
+    double operator()(double acc, const Polygon& p) const {
+        return acc + AreaCalculator()(p);
+    }
+};
+
 struct SumAreaIf {
     std::function<bool(const Polygon&)> pred;
     SumAreaIf(std::function<bool(const Polygon&)> p) : pred(p) {}
     double operator()(double acc, const Polygon& p) const {
         return acc + (pred(p) ? AreaCalculator()(p) : 0.0);
-    }
-};
-
-struct SumArea {
-    double operator()(double acc, const Polygon& p) const {
-        return acc + AreaCalculator()(p);
     }
 };
 
@@ -140,17 +179,10 @@ struct IsSameWithShift {
         if (target_size != other.points.size()) return false;
         if (target_size == 0) return true;
         Polygon other_norm = NormalizePolygon()(other);
-        for (size_t shift = 0; shift < target_size; ++shift) {
-            bool match = true;
-            for (size_t i = 0; i < target_size; ++i) {
-                if (!(target_norm.points[i] == other_norm.points[(i + shift) % target_size])) {
-                    match = false;
-                    break;
-                }
-            }
-            if (match) return true;
-        }
-        return false;
+        std::vector<Point> doubled = other_norm.points;
+        doubled.insert(doubled.end(), other_norm.points.begin(), other_norm.points.end() - 1);
+        return std::search(doubled.begin(), doubled.end(),
+            target_norm.points.begin(), target_norm.points.end()) != doubled.end();
     }
 };
 
@@ -160,9 +192,7 @@ struct RemoveConsecutiveTarget {
     RemoveConsecutiveTarget(const Polygon& t) : target(t), last_was_target_and_kept(false) {}
     bool operator()(const Polygon& p) const {
         if (p == target) {
-            if (last_was_target_and_kept) {
-                return false;
-            }
+            if (last_was_target_and_kept) return false;
             last_was_target_and_kept = true;
             return true;
         }
@@ -170,35 +200,6 @@ struct RemoveConsecutiveTarget {
         return true;
     }
 };
-
-std::istream& operator>>(std::istream& in, Point& dest) {
-    std::istream::sentry sentry(in);
-    if (!sentry) return in;
-    char c1, c2, c3;
-    int x, y;
-    if (in >> c1 >> x >> c2 >> y >> c3 && c1 == '(' && c2 == ';' && c3 == ')') {
-        dest = { x, y };
-    }
-    else {
-        in.setstate(std::ios::failbit);
-    }
-    return in;
-}
-
-std::istream& operator>>(std::istream& in, Polygon& dest) {
-    std::istream::sentry sentry(in);
-    if (!sentry) return in;
-    size_t n;
-    if (!(in >> n) || n < 3) {
-        in.setstate(std::ios::failbit);
-        return in;
-    }
-    Polygon tmp;
-    tmp.points.resize(n);
-    std::copy_n(std::istream_iterator<Point>(in), n, tmp.points.begin());
-    if (in) dest = std::move(tmp);
-    return in;
-}
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -220,7 +221,7 @@ int main(int argc, char* argv[]) {
         if (iss >> p) {
             iss >> std::ws;
             if (iss.eof()) {
-                polygons.push_back(p);
+                polygons.push_back(std::move(p));
             }
         }
     }
@@ -238,7 +239,6 @@ int main(int argc, char* argv[]) {
         if (cmd == "AREA") {
             std::string arg;
             iss >> arg;
-
             if (arg == "MEAN") {
                 if (polygons.empty()) {
                     std::cout << "<INVALID COMMAND>\n";
@@ -276,7 +276,6 @@ int main(int argc, char* argv[]) {
         else if (cmd == "MAX") {
             std::string arg;
             iss >> arg;
-
             if (polygons.empty()) {
                 std::cout << "<INVALID COMMAND>\n";
             }
@@ -295,7 +294,6 @@ int main(int argc, char* argv[]) {
         else if (cmd == "MIN") {
             std::string arg;
             iss >> arg;
-
             if (polygons.empty()) {
                 std::cout << "<INVALID COMMAND>\n";
             }
@@ -314,7 +312,6 @@ int main(int argc, char* argv[]) {
         else if (cmd == "COUNT") {
             std::string arg;
             iss >> arg;
-
             if (arg == "EVEN") {
                 std::cout << std::count_if(polygons.begin(), polygons.end(), IsEvenVertexCount()) << "\n";
             }
@@ -359,8 +356,7 @@ int main(int argc, char* argv[]) {
                 std::vector<Polygon> new_polygons;
                 RemoveConsecutiveTarget remover(target);
                 std::copy_if(polygons.begin(), polygons.end(),
-                    std::back_inserter(new_polygons),
-                    remover);
+                    std::back_inserter(new_polygons), remover);
                 size_t removed = polygons.size() - new_polygons.size();
                 polygons.swap(new_polygons);
                 std::cout << removed << "\n";
@@ -370,6 +366,5 @@ int main(int argc, char* argv[]) {
             std::cout << "<INVALID COMMAND>\n";
         }
     }
-
     return 0;
 }
