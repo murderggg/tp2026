@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
                 Polygon target = polygonFromArgs(args);
 
                 if (polygons.empty()) {
-                    std::cout << "<FALSE>" << std::endl;
+                    std::cout << "<INVALID COMMAND>" << std::endl;
                     continue;
                 }
 
