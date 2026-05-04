@@ -12,6 +12,7 @@
 #include <iterator>
 #include <exception>
 
+
 const int MAX_CRD = std::numeric_limits<int>::max();
 //9. RMECHO INTERSECTIONS
 
@@ -225,7 +226,6 @@ int main(int argc, char* argv[]) {
         if (cmd == "AREA") {
             std::string subcmd;
             if (!(std::cin >> subcmd)) break;
-
             double res = 0.0;
             if (subcmd == "EVEN") res = std::accumulate(polys.begin(), polys.end(), 0.0, addAreaIfEven);
             else if (subcmd == "ODD") res = std::accumulate(polys.begin(), polys.end(), 0.0, addAreaIfOdd);
