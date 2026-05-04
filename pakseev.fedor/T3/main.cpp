@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <iterator>
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -113,34 +114,53 @@ struct CompareByVertexes {
     }
 };
 
+std::istream& operator>>(std::istream& is, Point& p) {
+    char open, semicolon, close;
+    if (is >> open >> p.x >> semicolon >> p.y >> close) {
+        if (open != '(' || semicolon != ';' || close != ')') {
+            is.setstate(std::ios::failbit);
+        }
+    }
+    return is;
+}
+
+std::istream& operator>>(std::istream& is, Polygon& poly) {
+    int n;
+    if (!(is >> n) || n < 3) {
+        is.setstate(std::ios::failbit);
+        return is;
+    }
+    
+    poly.points.reserve(n);
+    
+    std::copy_n(std::istream_iterator<Point>(is), n, std::back_inserter(poly.points));
+    
+    if (is.fail()) {
+        poly.points.clear();
+    }
+    
+    return is;
+}
+
+bool hasExtraTokens(std::istringstream& iss) {
+    std::string extra;
+    iss >> std::ws;
+    if (iss >> extra) {
+        return true;
+    }
+    return false;
+}
 
 Polygon parsePolygon(const std::string& line) {
     std::istringstream iss(line);
-    int n;
-    if (!(iss >> n) || n < 3) {
-        return {};
-    }
-
     Polygon p;
-
-    for (int i = 0; i < n; ++i) {
-        char open, semicolon, close;
-        int x, y;
-        if (!(iss >> open >> x >> semicolon >> y >> close)) {
-            return {};
+    if (iss >> p) {
+        std::string extra;
+        if (!(iss >> extra)) {
+            return p;
         }
-        if (open != '(' || semicolon != ';' || close != ')') {
-            return {};
-        }
-        p.points.push_back({x, y});
     }
-
-    std::string extra;
-    if (iss >> extra) {
-        return {};
-    }
-
-    return p;
+    return {};
 }
 
 int main(int argc, char* argv[]) {
@@ -166,16 +186,23 @@ int main(int argc, char* argv[]) {
             polygons.push_back(p);
         }
     }
-
     std::cout << std::fixed << std::setprecision(1);
 
-    std::string cmd;
-    while (std::cin >> cmd) {
+    std::string fullCommand;
+    while (std::getline(std::cin, fullCommand)) {
+        if (fullCommand.empty()) continue;
+        std::istringstream iss(fullCommand);
+        std::string cmd;
+        iss >> cmd;
         try {
             if (cmd == "AREA") {
                 std::string sub;
-                std::cin >> sub;
-
+                iss >> sub;
+                
+                if (hasExtraTokens(iss)) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
                 if (sub == "ODD") {
                     double res = std::accumulate(polygons.begin(), polygons.end(), 0.0,
                     AreaSummator(isVertexCountOdd()));
@@ -216,8 +243,11 @@ int main(int argc, char* argv[]) {
 
             } else if (cmd == "MAX") {
                 std::string sub;
-                std::cin >> sub;
-
+                iss >> sub;
+                if (hasExtraTokens(iss)) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
                 if (polygons.empty()) {
                     std::cout << "<INVALID COMMAND>\n";
                     continue;
@@ -237,8 +267,11 @@ int main(int argc, char* argv[]) {
 
             } else if (cmd == "MIN") {
                 std::string sub;
-                std::cin >> sub;
-
+                iss >> sub;
+                if (hasExtraTokens(iss)) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
                 if (polygons.empty()) {
                     std::cout << "<INVALID COMMAND>\n";
                     continue;
@@ -257,8 +290,11 @@ int main(int argc, char* argv[]) {
 
             } else if (cmd == "COUNT") {
                 std::string sub;
-                std::cin >> sub;
-
+                iss >> sub;
+                if (hasExtraTokens(iss)) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
                 if (sub == "ODD") {
                     std::cout << std::count_if(polygons.begin(), polygons.end(), isVertexCountOdd()) << std::endl;
 
@@ -283,8 +319,13 @@ int main(int argc, char* argv[]) {
                 }
 
             } else if (cmd == "ECHO") {
+                if (polygons.empty()) {
+                    std::cout << 0 << std::endl;
+                    continue;
+                }
+
                 std::string pLine;
-                std::getline(std::cin >> std::ws, pLine);
+                std::getline(iss >> std::ws, pLine);
 
                 Polygon target = parsePolygon(pLine);
                 if (target.points.empty()) {
@@ -312,8 +353,13 @@ int main(int argc, char* argv[]) {
 
 
             } else if (cmd == "MAXSEQ") {
+                if (polygons.empty()) {
+                    std::cout << 0 << std::endl;
+                    continue;
+                }
+
                 std::string pLine;
-                std::getline(std::cin >> std::ws, pLine);
+                std::getline(iss >> std::ws, pLine);
 
                 Polygon target = parsePolygon(pLine);
                 if (target.points.empty()) {
@@ -341,8 +387,6 @@ int main(int argc, char* argv[]) {
 
             } else {
                 std::cout << "<INVALID COMMAND>\n";
-                std::string clearBuffer;
-                std::getline(std::cin, clearBuffer);
             }
 
         } catch (std::exception& e) {
