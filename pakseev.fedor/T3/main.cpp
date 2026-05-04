@@ -130,15 +130,15 @@ std::istream& operator>>(std::istream& is, Polygon& poly) {
         is.setstate(std::ios::failbit);
         return is;
     }
-    
+
     poly.points.reserve(n);
-    
+
     std::copy_n(std::istream_iterator<Point>(is), n, std::back_inserter(poly.points));
-    
+
     if (is.fail()) {
         poly.points.clear();
     }
-    
+
     return is;
 }
 
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
             if (cmd == "AREA") {
                 std::string sub;
                 iss >> sub;
-                
+
                 if (hasExtraTokens(iss)) {
                     std::cout << "<INVALID COMMAND>\n";
                     continue;
