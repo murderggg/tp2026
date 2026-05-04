@@ -5,7 +5,6 @@
 #include <iterator>
 #include <complex>
 #include <iomanip>
-#include <limits>
 
 namespace nspace
 {
@@ -21,9 +20,13 @@ namespace nspace
             {
                 return key1 < other.key1;
             }
-            if (std::abs(key2) != std::abs(other.key2))
+            double mod1 = std::abs(key2);
+            double mod2 = std::abs(other.key2);
+            const double EPS = 1e-9;
+
+            if (std::abs(mod1 - mod2) > EPS)
             {
-                return std::abs(key2) < std::abs(other.key2);
+                return mod1 < mod2;
             }
             return key3.length() < other.key3.length();
         }
@@ -49,6 +52,13 @@ namespace nspace
     {
         std::istream::sentry sentry(in);
         if (!sentry) return in;
+        char first;
+        in >> first;
+        if (first != '0')
+        {
+            in.setstate(std::ios::failbit);
+            return in;
+        }
         return in >> std::oct >> dest.ref;
     }
 
@@ -68,22 +78,6 @@ namespace nspace
         if (!sentry) return in;
         return std::getline(in >> DelimiterIO{ '"' }, dest.ref, '"');
     }
-
-    std::istream& operator>>(std::istream& in, LabelIO&& dest)
-    {
-        std::istream::sentry sentry(in);
-        if (!sentry) return in;
-        std::string data;
-        for (size_t i = 0; i < dest.exp.length(); ++i)
-        {
-            char c;
-            in >> c;
-            data += c;
-        }
-        if (in && (data != dest.exp)) in.setstate(std::ios::failbit);
-        return in;
-    }
-
     std::istream& operator>>(std::istream& in, DataStruct& dest)
     {
         std::istream::sentry sentry(in);
@@ -124,18 +118,15 @@ namespace nspace
 int main() {
     using namespace nspace;
     std::vector<DataStruct> data;
-    while (!std::cin.eof())
+    std::string line;
+
+    while (std::getline(std::cin, line))
     {
+        std::istringstream iss(line);
         DataStruct temp;
-        if (std::cin >> temp)
+        if (iss >> temp)
         {
             data.push_back(temp);
-        }
-        else
-        {
-            if (std::cin.eof()) break;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         }
     }
     std::sort(data.begin(), data.end());
