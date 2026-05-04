@@ -9,6 +9,7 @@
 #include <vector>
 #include <utility>
 #include <limits>
+#include <iterator>
 
 const int MAX_CRD = std::numeric_limits<int>::max();
 //9. RMECHO INTERSECTIONS
