@@ -37,6 +37,11 @@ bool operator==(const Point& p1, const Point& p2) {
     return p1.x == p2.x && p1.y == p2.y;
 }
 
+bool operator==(const Polygon& p1, const Polygon& p2) {
+    if (p1.points.size() != p2.points.size()) return false;
+    return std::equal(p1.points.begin(), p1.points.end(), p2.points.begin(), std::equal_to<Point>());
+}
+
 std::istream& operator>>(std::istream& is, Polygon& pg) {
     std::istream::sentry sentry(is);
     if (!is) return is;
@@ -51,14 +56,6 @@ std::istream& operator>>(std::istream& is, Polygon& pg) {
         pg.points = pts;
     }
     return is;
-}
-
-bool operator==(const Polygon& p1, const Polygon& p2) {
-    if (p1.points.size() != p2.points.size()) return false;
-    for (size_t i = 0; i < p1.points.size(); ++i) {
-        if (!(p1.points[i] == p2.points[i])) return false;
-    }
-    return true;
 }
 
 double calcAreaTerm(const Point& a, const Point& b) {
@@ -133,13 +130,8 @@ bool parsePolygon(const std::string& line, Polygon& poly) {
     size_t count;
     if (!(iss >> count) || count < 3) return false;
     std::vector<Point> pts;
-    for (size_t i = 0; i < count; ++i) {
-        Point p;
-        char c1, c2, c3;
-        if (!(iss >> c1 >> p.x >> c2 >> p.y >> c3)) return false;
-        if (c1 != '(' || c2 != ';' || c3 != ')') return false;
-        pts.push_back(p);
-    }
+    std::copy_n(std::istream_iterator<Point>(iss), count, std::back_inserter(pts));
+    if (iss.fail()) return false;
     std::string leftover;
     if (iss >> leftover) return false;
     poly.points = pts;
@@ -167,6 +159,11 @@ int main(int argc, char* argv[]) {
         if (cmd == "AREA") {
             std::string subcmd;
             if (!(iss >> subcmd)) {
+                std::cout << "<INVALID COMMAND>\n";
+                continue;
+            }
+            std::string leftover;
+            if (iss >> leftover) {
                 std::cout << "<INVALID COMMAND>\n";
                 continue;
             }
@@ -198,6 +195,11 @@ int main(int argc, char* argv[]) {
                 std::cout << "<INVALID COMMAND>\n";
                 continue;
             }
+            std::string leftover;
+            if (iss >> leftover) {
+                std::cout << "<INVALID COMMAND>\n";
+                continue;
+            }
             if (subcmd == "AREA") {
                 auto it = std::min_element(polys.begin(), polys.end(), compareArea);
                 std::cout << area(*it) << "\n";
@@ -215,6 +217,11 @@ int main(int argc, char* argv[]) {
                 std::cout << "<INVALID COMMAND>\n";
                 continue;
             }
+            std::string leftover;
+            if (iss >> leftover) {
+                std::cout << "<INVALID COMMAND>\n";
+                continue;
+            }
             if (subcmd == "AREA") {
                 auto it = std::max_element(polys.begin(), polys.end(), compareArea);
                 std::cout << area(*it) << "\n";
@@ -229,6 +236,11 @@ int main(int argc, char* argv[]) {
         else if (cmd == "COUNT") {
             std::string subcmd;
             if (!(iss >> subcmd)) {
+                std::cout << "<INVALID COMMAND>\n";
+                continue;
+            }
+            std::string leftover;
+            if (iss >> leftover) {
                 std::cout << "<INVALID COMMAND>\n";
                 continue;
             }
@@ -280,14 +292,16 @@ int main(int argc, char* argv[]) {
                 continue;
             }
             size_t maxSeq = 0;
-            size_t curSeq = 0;
-            for (const auto& p : polys) {
-                if (p == target) {
-                    ++curSeq;
-                    if (curSeq > maxSeq) maxSeq = curSeq;
-                } else {
-                    curSeq = 0;
-                }
+            auto it = polys.begin();
+            while (it != polys.end()) {
+                auto start = std::find_if(it, polys.end(),
+                    std::bind(isTargetPolygon, _1, target));
+                if (start == polys.end()) break;
+                auto end = std::find_if_not(start, polys.end(),
+                    std::bind(isTargetPolygon, _1, target));
+                size_t len = std::distance(start, end);
+                if (len > maxSeq) maxSeq = len;
+                it = end;
             }
             std::cout << maxSeq << "\n";
         }
