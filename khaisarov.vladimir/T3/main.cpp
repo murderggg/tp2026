@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -114,18 +115,39 @@ std::string pointToString(const Point& point)
   return output.str();
 }
 
+struct AddPointToString
+{
+  std::string operator()(const std::string& result, const Point& point) const
+  {
+    return result + " " + pointToString(point);
+  }
+};
+
 std::string polygonToString(const Polygon& polygon)
 {
   return std::accumulate(
     polygon.points.cbegin(),
     polygon.points.cend(),
     std::to_string(polygon.points.size()),
-    [](std::string result, const Point& point)
-    {
-      return result + " " + pointToString(point);
-    }
+    AddPointToString()
   );
 }
+
+struct PointReader
+{
+  std::istream& input;
+  bool& correct;
+
+  Point operator()() const
+  {
+    Point point{ 0, 0 };
+    if (!(input >> point))
+    {
+      correct = false;
+    }
+    return point;
+  }
+};
 
 ParsedPolygon parsePolygon(const std::string& line)
 {
@@ -142,19 +164,7 @@ ParsedPolygon parsePolygon(const std::string& line)
   std::vector< Point > points;
   points.reserve(count);
 
-  std::generate_n(
-    std::back_inserter(points),
-    count,
-    [&input, &correct]()
-    {
-      Point point{ 0, 0 };
-      if (!(input >> point))
-      {
-        correct = false;
-      }
-      return point;
-    }
-  );
+  std::generate_n(std::back_inserter(points), count, PointReader{ input, correct });
 
   std::string extra;
   if (!correct || (input >> extra))
@@ -181,10 +191,7 @@ std::vector< Polygon > readPolygons(std::istream& input)
     lines.cbegin(),
     lines.cend(),
     std::back_inserter(parsed),
-    [](const Line& line)
-    {
-      return parsePolygon(line.text);
-    }
+    std::bind(parsePolygon, std::bind(&Line::text, std::placeholders::_1))
   );
 
   std::vector< ParsedPolygon > correct;
@@ -193,10 +200,7 @@ std::vector< Polygon > readPolygons(std::istream& input)
     parsed.cbegin(),
     parsed.cend(),
     std::back_inserter(correct),
-    [](const ParsedPolygon& value)
-    {
-      return value.correct;
-    }
+    std::bind(&ParsedPolygon::correct, std::placeholders::_1)
   );
 
   std::vector< Polygon > polygons;
@@ -205,34 +209,112 @@ std::vector< Polygon > readPolygons(std::istream& input)
     correct.cbegin(),
     correct.cend(),
     std::back_inserter(polygons),
-    [](const ParsedPolygon& value)
-    {
-      return value.polygon;
-    }
+    std::bind(&ParsedPolygon::polygon, std::placeholders::_1)
   );
 
   return polygons;
 }
 
+struct GaussSum
+{
+  const Polygon& polygon;
+  std::size_t index;
+
+  long long operator()(long long result, const Point& point)
+  {
+    const Point& next = polygon.points[(index + 1) % polygon.points.size()];
+    ++index;
+    return result + static_cast< long long >(point.x) * next.y - static_cast< long long >(next.x) * point.y;
+  }
+};
+
 double getArea(const Polygon& polygon)
 {
-  std::vector< std::size_t > indexes(polygon.points.size());
-  std::iota(indexes.begin(), indexes.end(), 0);
-
   const long long doubleArea = std::accumulate(
-    indexes.cbegin(),
-    indexes.cend(),
+    polygon.points.cbegin(),
+    polygon.points.cend(),
     0LL,
-    [&polygon](long long result, std::size_t index)
-    {
-      const Point& first = polygon.points[index];
-      const Point& second = polygon.points[(index + 1) % polygon.points.size()];
-      return result + static_cast< long long >(first.x) * second.y - static_cast< long long >(second.x) * first.y;
-    }
+    GaussSum{ polygon, 0 }
   );
-
   return std::abs(static_cast< double >(doubleArea)) / 2.0;
 }
+
+std::size_t getVertexCount(const Polygon& polygon)
+{
+  return polygon.points.size();
+}
+
+struct AddArea
+{
+  double operator()(double result, const Polygon& polygon) const
+  {
+    return result + getArea(polygon);
+  }
+};
+
+struct AddEvenArea
+{
+  double operator()(double result, const Polygon& polygon) const
+  {
+    return polygon.points.size() % 2 == 0 ? result + getArea(polygon) : result;
+  }
+};
+
+struct AddOddArea
+{
+  double operator()(double result, const Polygon& polygon) const
+  {
+    return polygon.points.size() % 2 != 0 ? result + getArea(polygon) : result;
+  }
+};
+
+struct AddAreaWithVertexCount
+{
+  std::size_t vertexCount;
+
+  double operator()(double result, const Polygon& polygon) const
+  {
+    return polygon.points.size() == vertexCount ? result + getArea(polygon) : result;
+  }
+};
+
+struct AreaLess
+{
+  bool operator()(const Polygon& lhs, const Polygon& rhs) const
+  {
+    return getArea(lhs) < getArea(rhs);
+  }
+};
+
+struct VertexCountLess
+{
+  bool operator()(const Polygon& lhs, const Polygon& rhs) const
+  {
+    return lhs.points.size() < rhs.points.size();
+  }
+};
+
+struct HasLessArea
+{
+  double area;
+
+  bool operator()(const Polygon& polygon) const
+  {
+    return getArea(polygon) < area;
+  }
+};
+
+struct AddToSequence
+{
+  Polygon sample;
+
+  SequenceState operator()(SequenceState state, const Polygon& polygon) const
+  {
+    state.current = polygon == sample ? state.current + 1 : 0;
+    state.maximum = std::max(state.maximum, state.current);
+    return state;
+  }
+};
 
 std::string makeDoubleAnswer(double value)
 {
@@ -260,28 +342,12 @@ std::string makeAreaAnswer(const std::vector< Polygon >& polygons, const std::st
 {
   if (parameter == "EVEN")
   {
-    return makeDoubleAnswer(std::accumulate(
-      polygons.cbegin(),
-      polygons.cend(),
-      0.0,
-      [](double result, const Polygon& polygon)
-      {
-        return polygon.points.size() % 2 == 0 ? result + getArea(polygon) : result;
-      }
-    ));
+    return makeDoubleAnswer(std::accumulate(polygons.cbegin(), polygons.cend(), 0.0, AddEvenArea()));
   }
 
   if (parameter == "ODD")
   {
-    return makeDoubleAnswer(std::accumulate(
-      polygons.cbegin(),
-      polygons.cend(),
-      0.0,
-      [](double result, const Polygon& polygon)
-      {
-        return polygon.points.size() % 2 != 0 ? result + getArea(polygon) : result;
-      }
-    ));
+    return makeDoubleAnswer(std::accumulate(polygons.cbegin(), polygons.cend(), 0.0, AddOddArea()));
   }
 
   if (parameter == "MEAN")
@@ -290,15 +356,7 @@ std::string makeAreaAnswer(const std::vector< Polygon >& polygons, const std::st
     {
       return INVALID_COMMAND;
     }
-    return makeDoubleAnswer(std::accumulate(
-      polygons.cbegin(),
-      polygons.cend(),
-      0.0,
-      [](double result, const Polygon& polygon)
-      {
-        return result + getArea(polygon);
-      }
-    ) / polygons.size());
+    return makeDoubleAnswer(std::accumulate(polygons.cbegin(), polygons.cend(), 0.0, AddArea()) / polygons.size());
   }
 
   std::size_t vertexCount = 0;
@@ -311,10 +369,7 @@ std::string makeAreaAnswer(const std::vector< Polygon >& polygons, const std::st
     polygons.cbegin(),
     polygons.cend(),
     0.0,
-    [vertexCount](double result, const Polygon& polygon)
-    {
-      return polygon.points.size() == vertexCount ? result + getArea(polygon) : result;
-    }
+    AddAreaWithVertexCount{ vertexCount }
   ));
 }
 
@@ -327,26 +382,12 @@ std::string makeMaxAnswer(const std::vector< Polygon >& polygons, const std::str
 
   if (parameter == "AREA")
   {
-    return makeDoubleAnswer(getArea(*std::max_element(
-      polygons.cbegin(),
-      polygons.cend(),
-      [](const Polygon& lhs, const Polygon& rhs)
-      {
-        return getArea(lhs) < getArea(rhs);
-      }
-    )));
+    return makeDoubleAnswer(getArea(*std::max_element(polygons.cbegin(), polygons.cend(), AreaLess())));
   }
 
   if (parameter == "VERTEXES")
   {
-    return makeSizeAnswer(std::max_element(
-      polygons.cbegin(),
-      polygons.cend(),
-      [](const Polygon& lhs, const Polygon& rhs)
-      {
-        return lhs.points.size() < rhs.points.size();
-      }
-    )->points.size());
+    return makeSizeAnswer(std::max_element(polygons.cbegin(), polygons.cend(), VertexCountLess())->points.size());
   }
 
   return INVALID_COMMAND;
@@ -361,26 +402,12 @@ std::string makeMinAnswer(const std::vector< Polygon >& polygons, const std::str
 
   if (parameter == "AREA")
   {
-    return makeDoubleAnswer(getArea(*std::min_element(
-      polygons.cbegin(),
-      polygons.cend(),
-      [](const Polygon& lhs, const Polygon& rhs)
-      {
-        return getArea(lhs) < getArea(rhs);
-      }
-    )));
+    return makeDoubleAnswer(getArea(*std::min_element(polygons.cbegin(), polygons.cend(), AreaLess())));
   }
 
   if (parameter == "VERTEXES")
   {
-    return makeSizeAnswer(std::min_element(
-      polygons.cbegin(),
-      polygons.cend(),
-      [](const Polygon& lhs, const Polygon& rhs)
-      {
-        return lhs.points.size() < rhs.points.size();
-      }
-    )->points.size());
+    return makeSizeAnswer(std::min_element(polygons.cbegin(), polygons.cend(), VertexCountLess())->points.size());
   }
 
   return INVALID_COMMAND;
@@ -393,10 +420,11 @@ std::string makeCountAnswer(const std::vector< Polygon >& polygons, const std::s
     return makeSizeAnswer(static_cast< std::size_t >(std::count_if(
       polygons.cbegin(),
       polygons.cend(),
-      [](const Polygon& polygon)
-      {
-        return polygon.points.size() % 2 == 0;
-      }
+      std::bind(
+        std::equal_to< std::size_t >(),
+        std::bind(std::modulus< std::size_t >(), std::bind(getVertexCount, std::placeholders::_1), 2),
+        0
+      )
     )));
   }
 
@@ -405,10 +433,11 @@ std::string makeCountAnswer(const std::vector< Polygon >& polygons, const std::s
     return makeSizeAnswer(static_cast< std::size_t >(std::count_if(
       polygons.cbegin(),
       polygons.cend(),
-      [](const Polygon& polygon)
-      {
-        return polygon.points.size() % 2 != 0;
-      }
+      std::bind(
+        std::equal_to< std::size_t >(),
+        std::bind(std::modulus< std::size_t >(), std::bind(getVertexCount, std::placeholders::_1), 2),
+        1
+      )
     )));
   }
 
@@ -421,10 +450,11 @@ std::string makeCountAnswer(const std::vector< Polygon >& polygons, const std::s
   return makeSizeAnswer(static_cast< std::size_t >(std::count_if(
     polygons.cbegin(),
     polygons.cend(),
-    [vertexCount](const Polygon& polygon)
-    {
-      return polygon.points.size() == vertexCount;
-    }
+    std::bind(
+      std::equal_to< std::size_t >(),
+      std::bind(getVertexCount, std::placeholders::_1),
+      vertexCount
+    )
   )));
 }
 
@@ -436,14 +466,10 @@ std::string makeLessAreaAnswer(const std::vector< Polygon >& polygons, const std
     return INVALID_COMMAND;
   }
 
-  const double area = getArea(parsed.polygon);
   return makeSizeAnswer(static_cast< std::size_t >(std::count_if(
     polygons.cbegin(),
     polygons.cend(),
-    [area](const Polygon& polygon)
-    {
-      return getArea(polygon) < area;
-    }
+    HasLessArea{ getArea(parsed.polygon) }
   )));
 }
 
@@ -459,12 +485,7 @@ std::string makeMaxSeqAnswer(const std::vector< Polygon >& polygons, const std::
     polygons.cbegin(),
     polygons.cend(),
     SequenceState{ 0, 0 },
-    [&parsed](SequenceState state, const Polygon& polygon)
-    {
-      state.current = polygon == parsed.polygon ? state.current + 1 : 0;
-      state.maximum = std::max(state.maximum, state.current);
-      return state;
-    }
+    AddToSequence{ parsed.polygon }
   );
 
   return makeSizeAnswer(answer.maximum);
@@ -510,10 +531,7 @@ void printAnswers(const std::vector< Polygon >& polygons, std::istream& input, s
     commands.cbegin(),
     commands.cend(),
     std::back_inserter(answers),
-    [&polygons](const Line& line)
-    {
-      return makeAnswer(polygons, line.text);
-    }
+    std::bind(makeAnswer, std::cref(polygons), std::bind(&Line::text, std::placeholders::_1))
   );
 
   std::copy(answers.cbegin(), answers.cend(), std::ostream_iterator< std::string >(output, "\n"));
