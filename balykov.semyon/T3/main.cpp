@@ -27,7 +27,7 @@ bool operator==(const Point& a, const Point& b) {
 }
 bool operator==(const Polygon& a, const Polygon& b) {
     if (a.points.size() == b.points.size()) {
-        return std::equal(a.points.begin(), 
+        return std::equal(a.points.begin(),
         b.points.end(), b.points.begin());
     }
     return false;
