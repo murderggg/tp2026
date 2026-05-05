@@ -27,8 +27,9 @@ bool operator==(const Point& a, const Point& b) {
 }
 bool operator==(const Polygon& a, const Polygon& b) {
     if (a.points.size() == b.points.size()) {
-        return std::equal(a.points.begin(), 
-        b.points.end(),  b.points.begin());
+        return std::equal(a.points.begin(),
+        b.points.end(),
+        b.points.begin());
     }
     return false;
 }
@@ -404,7 +405,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
                 double targetArea = getArea(target);
-                auto cnt = std::count_if(polygons.begin(), polygons.end(), 
+                auto cnt = std::count_if(polygons.begin(), polygons.end(),
                 LessArea(targetArea));
                 std::cout << cnt << "\n";
             }
@@ -416,10 +417,10 @@ int main(int argc, char* argv[]) {
                 }
 
                 auto cnt = std::count_if(polygons.begin(), polygons.end(),
-                    std::bind(PolygonsIntersect(), _1, target));
                 std::cout << cnt << "\n";
             }
             else {
+
                 std::cout << "<INVALID COMMAND>\n";
             }
         }
@@ -427,6 +428,7 @@ int main(int argc, char* argv[]) {
     catch (const std::exception& e) {
         std::cerr << e.what() << "\n";
         return 1;
+
     }
 
     return 0;
