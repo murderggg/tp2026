@@ -404,9 +404,15 @@ int main(int argc, char* argv[]) {
                     std::cout << "<INVALID COMMAND>\n";
                     continue;
                 }
+                char extra;
+                if (iss >> extra) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
+
                 double targetArea = getArea(target);
                 auto cnt = std::count_if(polygons.begin(), polygons.end(),
-                LessArea(targetArea));
+                    LessArea(targetArea));
                 std::cout << cnt << "\n";
             }
             else if (cmd == "INTERSECTIONS") {
@@ -415,8 +421,13 @@ int main(int argc, char* argv[]) {
                     std::cout << "<INVALID COMMAND>\n";
                     continue;
                 }
-
+                char extra;
+                if (iss >> extra) {
+                    std::cout << "<INVALID COMMAND>\n";
+                    continue;
+                }
                 auto cnt = std::count_if(polygons.begin(), polygons.end(),
+                    std::bind(PolygonsIntersect(), _1, target));
                 std::cout << cnt << "\n";
             }
             else {
