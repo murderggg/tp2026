@@ -231,24 +231,6 @@ struct PointInPolygon{
         return count % 2 == 1;
     }
 };
-struct SideIntersectionChecker{
-    const Polygon& poly1;
-    const Polygon& poly2;
-    int i;
-    int j;
-    int k;
-    SideIntersectionChecker(const Polygon& p1, const Polygon& p2, int idx1, int idx2)
-        : poly1(p1), poly2(p2), i(idx1),
-        j((idx1 + 1) % p1.points.size()),
-        k(idx2){}
-
-    bool operator()() const{
-        int l = (k + 1) % poly2.points.size();
-        return segmentsIntersect(poly1.points[i], poly1.points[j],
-            poly2.points[k], poly2.points[l]);
-    }
-};
-
 struct OneSideVsOneSideWrapper{
     const Polygon& poly1;
     const Polygon& poly2;
@@ -300,15 +282,12 @@ struct SideChecker{
 struct AnySideIntersects{
     const Polygon& poly1;
     const Polygon& poly2;
-
     AnySideIntersects(const Polygon& p1, const Polygon& p2) : poly1(p1), poly2(p2){}
-
     bool operator()() const{
         int n1 = poly1.points.size();
         std::vector<int> index1(n1);
         std::iota(index1.begin(), index1.end(), 0);
         std::vector<bool> hasIntersection(n1);
-
         std::transform(index1.begin(), index1.end(), hasIntersection.begin(),
             SideChecker(poly1, poly2));
         auto it = std::find(hasIntersection.begin(), hasIntersection.end(), true);
