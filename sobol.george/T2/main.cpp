@@ -11,7 +11,6 @@
 #include <cmath>
 #include <limits>
 
-//comment for pull
 struct DataStruct
 {
     unsigned long long key1;
